@@ -1,1 +1,100 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>GeoCOMPASS Field Log — RG-003</title><style>body{font-family:system-ui,sans-serif;max-width:820px;margin:auto;padding:24px;line-height:1.45}label{display:block;margin-top:14px;font-weight:600}input,textarea,select{width:100%;box-sizing:border-box;padding:10px;margin-top:6px;font:inherit}textarea{min-height:100px}button{margin-top:14px;padding:10px 16px;font:inherit}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:600px){.grid{grid-template-columns:1fr}}#output{white-space:pre-wrap;border:1px solid #ccc;padding:16px;margin-top:20px;display:none}.note{background:#f5f5f5;padding:12px;margin:12px 0}.records{margin-top:28px;border-top:2px solid #ddd;padding-top:18px}.record{border:1px solid #ddd;padding:12px;margin:10px 0;border-radius:8px}.record button{margin-right:6px}.small{font-size:.9em;color:#555}#status{margin-top:14px;padding:12px;border:1px solid #ccc;display:none}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{flex:1;min-width:150px}</style></head><body><h1>GeoCOMPASS Field Log</h1><p><strong>RG-003 Prototype v0.5</strong> — START → OBSERVE → RECORD → EVIDENCE → EXAMINE → APPLY → PRESERVE</p><div class="note">Records are stored locally on this phone/browser. RG-003 now uses a persistent local database with localStorage fallback. Nothing is transmitted to a server by this prototype. Human review remains required for consequential or external use.</div><form id="log"><div class="grid"><div><label>Date<input id="date" type="date" required></label></div><div><label>Time<input id="time" type="time"></label></div></div><label>General location<input id="location" placeholder="General location only"></label><label>Subject<input id="subject" required></label><label>Conditions<textarea id="conditions"></textarea></label><label>Direct observations<textarea id="observations" required></textarea></label><label>Evidence collected or referenced<textarea id="evidence"></textarea></label><label>Interpretation<textarea id="interpretation"></textarea></label><label>Confidence<select id="confidence"><option>Low</option><option selected>Medium</option><option>High</option></select></label><label>Alternative explanation<textarea id="alternative"></textarea></label><label>Recommended next action<textarea id="next"></textarea></label><div class="actions"><button type="submit">Generate & Save Report</button><button type="button" id="copy">Copy Report</button><button type="button" id="share">Share Report Text</button><button type="button" id="download">Save File</button></div></form><div id="status" role="status"></div><pre id="output"></pre><section class="records"><h2>Saved Field Logs</h2><p class="small">Records should survive a normal page reload. Clearing browser site data may remove them.</p><div id="records"></div><button type="button" id="clear">Clear Local Records</button></section><script>const $=id=>document.getElementById(id),KEY='geocompass_rg003_records_v05',DB='GeoCOMPASS_RG003',STORE='records';let report='',db=null;function show(x){$('status').textContent=x;$('status').style.display='block'}function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}function lsRead(){try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){return[]}}function lsWrite(a){try{localStorage.setItem(KEY,JSON.stringify(a));return true}catch(e){return false}}function openDB(){return new Promise((res,rej)=>{if(!('indexedDB'in window))return res(null);const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(STORE,{keyPath:'id'});r.onsuccess=()=>{db=r.result;res(db)};r.onerror=()=>res(null)})}function dbAll(){return new Promise(res=>{if(!db)return res(null);const r=db.transaction(STORE,'readonly').objectStore(STORE).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>res(null)})}function dbPut(x){return new Promise(res=>{if(!db)return res(false);const r=db.transaction(STORE,'readwrite').objectStore(STORE).put(x);r.onsuccess=()=>res(true);r.onerror=()=>res(false)})}function dbClear(){return new Promise(res=>{if(!db)return res(false);const r=db.transaction(STORE,'readwrite').objectStore(STORE).clear();r.onsuccess=()=>res(true);r.onerror=()=>res(false)})}async function allRecords(){const a=await dbAll();return a??lsRead()}async function saveRecord(x){const ok=await dbPut(x);if(ok){const a=lsRead();a.push(x);lsWrite(a);return 'database'}if(lsWrite([...lsRead(),x]))return 'localStorage';return null}async function render(){const box=$('records'),a=await allRecords();if(!a.length){box.innerHTML='<p class="small">No saved records yet.</p>';return}box.innerHTML=a.slice().reverse().map((r,i)=>`<div class="record"><strong>${esc(r.subject||'Untitled')}</strong><div class="small">${esc(r.date)} ${esc(r.time)} · ${esc(r.location)}</div><button type="button" onclick="viewRecord('${esc(r.id)}')">View</button></div>`).join('')}window.viewRecord=async id=>{const a=await allRecords(),r=a.find(x=>x.id===id);if(!r)return;report=r.report;$('output').textContent=report;$('output').style.display='block';show('Saved report loaded.')}$('date').valueAsDate=new Date();async function init(){await openDB();await render()}function makeReport(){return `GEOCOMPASS FIELD LOG — RG-003\n\nDate: ${$('date').value}\nTime: ${$('time').value}\nGeneral location: ${$('location').value}\nSubject: ${$('subject').value}\n\nCONDITIONS\n${$('conditions').value}\n\nDIRECT OBSERVATIONS\n${$('observations').value}\n\nEVIDENCE\n${$('evidence').value}\n\nINTERPRETATION\n${$('interpretation').value}\n\nCONFIDENCE\n${$('confidence').value}\n\nALTERNATIVE EXPLANATION\n${$('alternative').value}\n\nRECOMMENDED NEXT ACTION\n${$('next').value}\n\nPrototype: RG-003 v0.5\nHuman review required for consequential or external use.`}$('log').addEventListener('submit',async e=>{e.preventDefault();report=makeReport();const x={id:(crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random()),date:$('date').value,time:$('time').value,location:$('location').value,subject:$('subject').value,report,createdAt:new Date().toISOString()};const where=await saveRecord(x);$('output').textContent=report;$('output').style.display='block';await render();show(where?'Report generated and saved in '+where+'.':'Report generated, but this browser blocked local storage. Use Copy/Share/Save File.');});function ready(){if(!report){$('log').requestSubmit();return false}return true}$('copy').onclick=async()=>{if(!ready())return;try{await navigator.clipboard.writeText(report);show('Report copied to clipboard.')}catch(e){show('Clipboard blocked.')}};$('share').onclick=async()=>{if(!ready())return;try{if(navigator.share)await navigator.share({title:'GeoCOMPASS Field Log — RG-003',text:report});show('Report shared.')}catch(e){show(e.name==='AbortError'?'Share canceled.':'Share blocked.')}};$('download').onclick=()=>{if(!ready())return;const u=URL.createObjectURL(new Blob([report],{type:'text/plain'})),a=document.createElement('a');a.href=u;a.download='geocompass-field-log.txt';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);show('Save requested.')};$('clear').onclick=async()=>{if(confirm('Clear all locally saved RG-003 records on this device?')){await dbClear();try{localStorage.removeItem(KEY)}catch(e){}await render();show('Local records cleared.')}};init();</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GeoCOMPASS Field Log — RG-003</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:820px;margin:auto;padding:24px;line-height:1.45}
+label{display:block;margin-top:14px;font-weight:600}
+input,textarea,select{width:100%;box-sizing:border-box;padding:10px;margin-top:6px;font:inherit}
+textarea{min-height:100px}
+button{margin-top:14px;padding:10px 16px;font:inherit}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:600px){.grid{grid-template-columns:1fr}}
+#output{white-space:pre-wrap;border:1px solid #ccc;padding:16px;margin-top:20px;display:none}
+.note{background:#f5f5f5;padding:12px;margin:12px 0}
+#status{margin-top:14px;padding:12px;border:1px solid #ccc;display:none}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.actions button{flex:1;min-width:150px}
+.records{margin-top:28px;border-top:2px solid #ddd;padding-top:18px}
+.record{border:1px solid #ddd;padding:12px;margin:10px 0;border-radius:8px}
+.record button{margin-right:6px}.small{font-size:.9em;color:#555}
+</style>
+</head>
+<body>
+<h1>GeoCOMPASS Field Log</h1>
+<p><strong>RG-003 Prototype v0.6</strong> — START → OBSERVE → RECORD → EVIDENCE → EXAMINE → APPLY → PRESERVE</p>
+<div class="note">Records are stored locally on this phone/browser. This prototype does not transmit records to a server. Human review remains required for consequential or external use.</div>
+<form id="log">
+<div class="grid">
+<div><label>Date<input id="date" type="date" required></label></div>
+<div><label>Time<input id="time" type="time"></label></div>
+</div>
+<label>General location<input id="location" placeholder="General location only"></label>
+<label>Subject<input id="subject" required></label>
+<label>Conditions<textarea id="conditions"></textarea></label>
+<label>Direct observations<textarea id="observations" required></textarea></label>
+<label>Evidence collected or referenced<textarea id="evidence"></textarea></label>
+<label>Interpretation<textarea id="interpretation"></textarea></label>
+<label>Confidence<select id="confidence"><option>Low</option><option selected>Medium</option><option>High</option></select></label>
+<label>Alternative explanation<textarea id="alternative"></textarea></label>
+<label>Recommended next action<textarea id="next"></textarea></label>
+<div class="actions">
+<button id="generate" type="submit">Generate &amp; Save Report</button>
+<button id="copy" type="button">Copy Report</button>
+<button id="share" type="button">Share Report Text</button>
+<button id="download" type="button">Save File</button>
+</div>
+</form>
+<div id="status" role="status"></div>
+<pre id="output"></pre>
+<section class="records">
+<h2>Saved Field Logs</h2>
+<p class="small">Records should survive a normal page reload. Clearing browser site data may remove them.</p>
+<div id="records"></div>
+<button id="clear" type="button">Clear Local Records</button>
+</section>
+<script>
+(function(){
+'use strict';
+var KEY='geocompass_rg003_records_v06';
+var report='';
+function $(id){return document.getElementById(id);}
+function status(text){$('status').textContent=text;$('status').style.display='block';}
+function records(){try{return JSON.parse(localStorage.getItem(KEY)||'[]');}catch(e){return [];}}
+function saveRecords(list){try{localStorage.setItem(KEY,JSON.stringify(list));return true;}catch(e){return false;}}
+function makeReport(){
+return 'GEOCOMPASS FIELD LOG — RG-003\n\nDate: '+$('date').value+'\nTime: '+$('time').value+'\nGeneral location: '+$('location').value+'\nSubject: '+$('subject').value+'\n\nCONDITIONS\n'+$('conditions').value+'\n\nDIRECT OBSERVATIONS\n'+$('observations').value+'\n\nEVIDENCE\n'+$('evidence').value+'\n\nINTERPRETATION\n'+$('interpretation').value+'\n\nCONFIDENCE\n'+$('confidence').value+'\n\nALTERNATIVE EXPLANATION\n'+$('alternative').value+'\n\nRECOMMENDED NEXT ACTION\n'+$('next').value+'\n\nPrototype: RG-003 v0.6\nHuman review required for consequential or external use.';
+}
+function render(){
+var box=$('records'),list=records();
+if(!list.length){box.innerHTML='<p class="small">No saved records yet.</p>';return;}
+box.innerHTML='';
+for(var i=list.length-1;i>=0;i--){
+var r=list[i],div=document.createElement('div'),title=document.createElement('strong'),meta=document.createElement('div'),view=document.createElement('button'),del=document.createElement('button');
+div.className='record';title.textContent=r.subject||'Untitled';meta.className='small';meta.textContent=(r.date||'')+' '+(r.time||'')+' · '+(r.location||'');
+view.type='button';view.textContent='View';view.dataset.index=i;del.type='button';del.textContent='Delete';del.dataset.index=i;
+view.addEventListener('click',function(){var a=records(),x=a[Number(this.dataset.index)];if(x){report=x.report;$('output').textContent=report;$('output').style.display='block';status('Saved report loaded.');}});
+del.addEventListener('click',function(){var a=records();a.splice(Number(this.dataset.index),1);saveRecords(a);render();status('Record deleted.');});
+div.appendChild(title);div.appendChild(meta);div.appendChild(view);div.appendChild(del);box.appendChild(div);
+}
+}
+$('log').addEventListener('submit',function(e){
+e.preventDefault();
+report=makeReport();
+var item={date:$('date').value,time:$('time').value,location:$('location').value,subject:$('subject').value,report:report,createdAt:new Date().toISOString()};
+var list=records();list.push(item);
+var saved=saveRecords(list);
+$('output').textContent=report;$('output').style.display='block';render();
+status(saved?'Report generated and saved locally on this phone/browser.':'Report generated, but local storage is blocked. Use Copy, Share, or Save File.');
+});
+$('copy').addEventListener('click',function(){if(!report){status('Generate a report first.');return;}if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(report).then(function(){status('Report copied to clipboard.');}).catch(function(){status('Clipboard blocked.');});}else{status('Clipboard is not available on this browser.');}});
+$('share').addEventListener('click',function(){if(!report){status('Generate a report first.');return;}if(navigator.share){navigator.share({title:'GeoCOMPASS Field Log — RG-003',text:report}).then(function(){status('Report shared.');}).catch(function(e){status(e&&e.name==='AbortError'?'Share canceled.':'Share blocked.');});}else{status('Share is not available on this browser. Use Copy Report.');}});
+$('download').addEventListener('click',function(){if(!report){status('Generate a report first.');return;}try{var blob=new Blob([report],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='geocompass-field-log.txt';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(url);},1000);status('Save requested.');}catch(e){status('File save blocked. Use Copy or Share.');}});
+$('clear').addEventListener('click',function(){if(window.confirm('Clear all locally saved RG-003 records on this device?')){saveRecords([]);render();status('Local records cleared.');}});
+$('date').valueAsDate=new Date();
+render();
+})();
+</script>
+</body>
+</html>

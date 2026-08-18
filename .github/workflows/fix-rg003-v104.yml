@@ -1,0 +1,50 @@
+name: One-time RG-003 v1.0.4 fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, 'RG-003 v1.0.4') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch Generate & Save and release v1.0.4
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          replacements = [
+              ('RG-003 Prototype v1.0.3', 'RG-003 Prototype v1.0.4'),
+              ('v1.0.3 adds explicit version provenance.', 'v1.0.4 adds explicit version provenance and reliable mobile form submission.'),
+              ("BACKUP='geocompass_rg003_backup_v103'", "BACKUP='geocompass_rg003_backup_v104'"),
+              ("currentVersion='v1.0.3'", "currentVersion='v1.0.4'"),
+              ("rg003-records-v1.0.3.json", "rg003-records-v1.0.4.json"),
+              ("RG-003-backup-v1.0.3.json", "RG-003-backup-v1.0.4.json"),
+              ("RG-003 v1.0.3 loaded.", "RG-003 v1.0.4 loaded."),
+          ]
+          for old, new in replacements:
+              s = s.replace(old, new)
+          marker = "$('date').valueAsDate=new Date();var recovered=migrate();"
+          injection = "$('log').noValidate=true;$('log').addEventListener('invalid',function(e){e.preventDefault();status('Please complete the required field: '+(e.target.id||'unknown'));},true);$('date').valueAsDate=new Date();var recovered=migrate();"
+          if marker not in s:
+              raise SystemExit('Patch marker not found; refusing to modify index.html')
+          s = s.replace(marker, injection, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+          rm .github/workflows/fix-rg003-v104.yml
+
+      - name: Commit v1.0.4 fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .github/workflows/fix-rg003-v104.yml
+          git commit -m "RG-003 v1.0.4: fix Generate & Save mobile submission"
+          git push

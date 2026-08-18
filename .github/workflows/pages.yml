@@ -1,4 +1,5 @@
 # Simple workflow for deploying RG-003 static content to GitHub Pages
+# v1.0.5 clean deployment trigger
 name: Deploy RG-003 Field Log to Pages
 
 on:

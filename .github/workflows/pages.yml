@@ -1,15 +1,19 @@
 name: Deploy RG-003 Field Log
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
 permissions:
   contents: read
   pages: write
   id-token: write
+
 concurrency:
   group: pages
   cancel-in-progress: true
+
 jobs:
   deploy:
     environment:
@@ -19,10 +23,14 @@ jobs:
     steps:
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
       - name: Upload site
         uses: actions/upload-pages-artifact@v3
         with:
           path: .
+
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4

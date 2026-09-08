@@ -1,0 +1,11 @@
+{
+  "name": "GeoCOMPASS Field Log — RG-003",
+  "short_name": "RG-003",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "description": "GeoCOMPASS RG-003 expeditionary field log.",
+  "icons": []
+}
